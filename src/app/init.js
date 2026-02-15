@@ -1,6 +1,9 @@
 import { renderLayout } from "./layout";
 import { qs } from "../shared/dom";
 import { createStore } from "../shared/store";
+import { searchBooks } from "../shared/api/openLibrary";
+import { normalizeBooks } from "../entities/book/model";
+import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
 
 export function initApp() {
     const root = qs("#app");
@@ -10,54 +13,62 @@ export function initApp() {
 
     const store = createStore({
         query: "",
-        status: "idle", // idle | loading | success | empty | error
-        errorMessage: ""
+        status: "idle", // idle/loading/success/empty/error
+        errorMessage: "",
+        books: []
     });
 
     const statusEl = qs("#status");
     const inputEl = qs("#searchInput");
     const btnEl = qs("#searchBtn");
+    const gridEl = qs("#grid");
 
     function render(state) {
-        if (!statusEl) return;
-
         if (state.status === "idle") {
             statusEl.innerHTML = `<span class="muted">Type a query and press Search</span>`;
-            return;
-        }
-
-        if (state.status === "loading") {
+        } else if (state.status === "loading") {
             statusEl.textContent = `Loading results for "${state.query}"...`;
-            return;
-        }
-
-        if (state.status === "error") {
+        } else if (state.status === "empty") {
+            statusEl.textContent = `No results for "${state.query}". Try another query.`;
+        } else if (state.status === "error") {
             statusEl.textContent = state.errorMessage || "Something went wrong";
-            return;
+        } else {
+            statusEl.textContent = `Found ${state.books.length} books for "${state.query}"`;
         }
 
-        statusEl.textContent = `Done: "${state.query}" (stub)`;
+        renderCatalogGrid(gridEl, state.books);
     }
 
     render(store.getState());
 
-    store.subscribe((nextState, prevState, action) => {
-        render(nextState);
+    store.subscribe((next, prev, action) => {
+        render(next);
     });
 
-    btnEl.addEventListener("click", () => {
+    btnEl.addEventListener("click", async () => {
         const q = inputEl.value.trim();
 
         if (!q) {
-            store.setState({ query: "", status: "idle", errorMessage: "" }, "search/empty");
+            store.setState({ query: "", status: "idle", errorMessage: "", books: [] }, "search/empty");
             return;
         }
 
-        store.setState({ query: q, status: "loading", errorMessage: "" }, "search/start");
+        store.setState({ query: q, status: "loading", errorMessage: "", books: [] }, "search/start");
 
-        // пока заглушка: имитируем "готово" через таймер (чтобы увидеть смену стейтов)
-        setTimeout(() => {
-            store.setState({ status: "success" }, "search/success_stub");
-        }, 500);
+        try {
+            const raw = await searchBooks(q, { limit: 24 });
+            const books = normalizeBooks(raw);
+
+            if (!books.length) {
+                store.setState({ status: "empty", books: [] }, "search/empty_result");
+            } else {
+                store.setState({ status: "success", books }, "search/success");
+            }
+        } catch (err) {
+            store.setState(
+                { status: "error", errorMessage: err?.message || "Network error", books: [] },
+                "search/error"
+            );
+        }
     });
 }
