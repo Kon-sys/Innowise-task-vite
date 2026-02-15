@@ -21,7 +21,7 @@ export function renderLayout(rootEl) {
         <div class="filters">
           <label class="label">
             Author
-            <select id="authorSelect" class="select" disabled>
+            <select id="authorSelect" class="select">
               <option value="">All</option>
             </select>
           </label>

@@ -6,12 +6,10 @@ import { normalizeBooks } from "../entities/book/model";
 import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
 import { debounce } from "../shared/lib/debounce";
 
-import {
-    loadFavorites,
-    saveFavorites,
-    toggleFavorite
-} from "../features/favorites/favoritesRepository";
+import { loadFavorites, saveFavorites, toggleFavorite } from "../features/favorites/favoritesRepository";
 import { renderFavoritesPanel } from "../widgets/favorites/favoritesPanel";
+
+import { getUniqueAuthors, applyAuthorFilter, fillAuthorSelect } from "../features/filters/authorFilter";
 
 export function initApp() {
     const root = qs("#app");
@@ -24,7 +22,8 @@ export function initApp() {
         status: "idle", // idle/loading/success/empty/error
         errorMessage: "",
         books: [],
-        favorites: []
+        favorites: [],
+        authorFilter: ""
     });
 
     const statusEl = qs("#status");
@@ -32,6 +31,7 @@ export function initApp() {
     const btnEl = qs("#searchBtn");
     const gridEl = qs("#grid");
     const favoritesEl = qs("#favorites");
+    const authorSelectEl = qs("#authorSelect");
 
     store.setState({ favorites: loadFavorites() }, "favorites/load");
 
@@ -48,7 +48,9 @@ export function initApp() {
             statusEl.textContent = `Found ${state.books.length} books for "${state.query}"`;
         }
 
-        renderCatalogGrid(gridEl, state.books, state.favorites);
+        const filteredBooks = applyAuthorFilter(state.books, state.authorFilter);
+
+        renderCatalogGrid(gridEl, filteredBooks, state.favorites);
         renderFavoritesPanel(favoritesEl, state.favorites);
     }
 
@@ -61,7 +63,11 @@ export function initApp() {
         const q = query.trim();
 
         if (!q) {
-            store.setState({ query: "", status: "idle", errorMessage: "", books: [] }, "search/reset");
+            store.setState(
+                { query: "", status: "idle", errorMessage: "", books: [], authorFilter: "" },
+                "search/reset"
+            );
+            fillAuthorSelect(authorSelectEl, [], "");
             return;
         }
 
@@ -78,9 +84,13 @@ export function initApp() {
             const books = normalizeBooks(raw);
 
             if (!books.length) {
-                store.setState({ status: "empty", books: [] }, "search/empty_result");
+                store.setState({ status: "empty", books: [], authorFilter: "" }, "search/empty_result");
+                fillAuthorSelect(authorSelectEl, [], "");
             } else {
-                store.setState({ status: "success", books }, "search/success");
+                store.setState({ status: "success", books, authorFilter: "" }, "search/success");
+
+                const authors = getUniqueAuthors(books);
+                fillAuthorSelect(authorSelectEl, authors, "");
             }
         } catch (err) {
             if (err?.name === "AbortError") return;
@@ -95,7 +105,6 @@ export function initApp() {
     const debouncedSearch = debounce((q) => runSearch(q, { silent: true }), 400);
 
     btnEl.addEventListener("click", () => runSearch(inputEl.value));
-
     inputEl.addEventListener("input", (e) => debouncedSearch(e.target.value));
 
     inputEl.addEventListener("keydown", (e) => {
@@ -118,4 +127,10 @@ export function initApp() {
         store.setState({ favorites: nextFavs }, "favorites/toggle");
         saveFavorites(nextFavs);
     });
+
+    authorSelectEl.addEventListener("change", (e) => {
+        store.setState({ authorFilter: e.target.value }, "filter/author_change");
+    });
+
+    fillAuthorSelect(authorSelectEl, [], "");
 }
