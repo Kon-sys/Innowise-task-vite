@@ -4,6 +4,7 @@ import { createStore } from "../shared/store";
 import { searchBooks } from "../shared/api/openLibrary";
 import { normalizeBooks } from "../entities/book/model";
 import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
+import { debounce } from "../shared/lib/debounce";
 
 export function initApp() {
     const root = qs("#app");
@@ -25,7 +26,7 @@ export function initApp() {
 
     function render(state) {
         if (state.status === "idle") {
-            statusEl.innerHTML = `<span class="muted">Type a query and press Search</span>`;
+            statusEl.innerHTML = `<span class="muted">Type a query and start typing</span>`;
         } else if (state.status === "loading") {
             statusEl.textContent = `Loading results for "${state.query}"...`;
         } else if (state.status === "empty") {
@@ -40,23 +41,28 @@ export function initApp() {
     }
 
     render(store.getState());
+    store.subscribe((next) => render(next));
 
-    store.subscribe((next, prev, action) => {
-        render(next);
-    });
+    let currentController = null;
 
-    btnEl.addEventListener("click", async () => {
-        const q = inputEl.value.trim();
+    async function runSearch(query, { silent = false } = {}) {
+        const q = query.trim();
 
         if (!q) {
-            store.setState({ query: "", status: "idle", errorMessage: "", books: [] }, "search/empty");
+            store.setState({ query: "", status: "idle", errorMessage: "", books: [] }, "search/reset");
             return;
         }
 
-        store.setState({ query: q, status: "loading", errorMessage: "", books: [] }, "search/start");
+        if (currentController) currentController.abort();
+        currentController = new AbortController();
+
+        store.setState(
+            { query: q, status: "loading", errorMessage: "", books: [] },
+            silent ? "search/start_silent" : "search/start"
+        );
 
         try {
-            const raw = await searchBooks(q, { limit: 24 });
+            const raw = await searchBooks(q, { limit: 24, signal: currentController.signal });
             const books = normalizeBooks(raw);
 
             if (!books.length) {
@@ -65,10 +71,29 @@ export function initApp() {
                 store.setState({ status: "success", books }, "search/success");
             }
         } catch (err) {
+            if (err?.name === "AbortError") return;
+
             store.setState(
                 { status: "error", errorMessage: err?.message || "Network error", books: [] },
                 "search/error"
             );
+        }
+    }
+
+    const debouncedSearch = debounce((q) => {
+        runSearch(q, { silent: true });
+    }, 400);
+
+    btnEl.addEventListener("click", () => runSearch(inputEl.value));
+
+    inputEl.addEventListener("input", (e) => {
+        debouncedSearch(e.target.value);
+    });
+
+    inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            runSearch(inputEl.value);
         }
     });
 }
