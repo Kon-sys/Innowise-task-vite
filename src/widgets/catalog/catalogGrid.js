@@ -1,5 +1,7 @@
-export function renderCatalogGrid(containerEl, books) {
+export function renderCatalogGrid(containerEl, books, favorites = []) {
     if (!containerEl) return;
+
+    const favSet = new Set(favorites.map((f) => f.id));
 
     if (!books.length) {
         containerEl.innerHTML = "";
@@ -7,8 +9,10 @@ export function renderCatalogGrid(containerEl, books) {
     }
 
     containerEl.innerHTML = books
-        .map(
-            (b) => `
+        .map((b) => {
+            const isFav = favSet.has(b.id);
+
+            return `
       <article class="card" data-id="${escapeHtml(b.id)}">
         <div class="cardCover">
           ${
@@ -17,14 +21,27 @@ export function renderCatalogGrid(containerEl, books) {
                     : `<div class="coverStub">No cover</div>`
             }
         </div>
+
         <div class="cardBody">
-          <h3 class="cardTitle">${escapeHtml(b.title)}</h3>
+          <div class="cardTopRow">
+            <h3 class="cardTitle">${escapeHtml(b.title)}</h3>
+            <button
+              class="favBtn ${isFav ? "isFav" : ""}"
+              type="button"
+              data-action="toggle-fav"
+              data-id="${escapeHtml(b.id)}"
+              aria-label="${isFav ? "Remove from favorites" : "Add to favorites"}"
+            >
+              ${isFav ? "★" : "☆"}
+            </button>
+          </div>
+
           <p class="cardMeta">${escapeHtml(formatAuthors(b.authors))}</p>
           <p class="cardMeta">${b.year ? `Year: ${b.year}` : "Year: —"}</p>
         </div>
       </article>
-    `
-        )
+    `;
+        })
         .join("");
 }
 

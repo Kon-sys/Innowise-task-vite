@@ -6,6 +6,13 @@ import { normalizeBooks } from "../entities/book/model";
 import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
 import { debounce } from "../shared/lib/debounce";
 
+import {
+    loadFavorites,
+    saveFavorites,
+    toggleFavorite
+} from "../features/favorites/favoritesRepository";
+import { renderFavoritesPanel } from "../widgets/favorites/favoritesPanel";
+
 export function initApp() {
     const root = qs("#app");
     if (!root) throw new Error("Root element #app not found");
@@ -16,13 +23,17 @@ export function initApp() {
         query: "",
         status: "idle", // idle/loading/success/empty/error
         errorMessage: "",
-        books: []
+        books: [],
+        favorites: []
     });
 
     const statusEl = qs("#status");
     const inputEl = qs("#searchInput");
     const btnEl = qs("#searchBtn");
     const gridEl = qs("#grid");
+    const favoritesEl = qs("#favorites");
+
+    store.setState({ favorites: loadFavorites() }, "favorites/load");
 
     function render(state) {
         if (state.status === "idle") {
@@ -37,7 +48,8 @@ export function initApp() {
             statusEl.textContent = `Found ${state.books.length} books for "${state.query}"`;
         }
 
-        renderCatalogGrid(gridEl, state.books);
+        renderCatalogGrid(gridEl, state.books, state.favorites);
+        renderFavoritesPanel(favoritesEl, state.favorites);
     }
 
     render(store.getState());
@@ -80,20 +92,30 @@ export function initApp() {
         }
     }
 
-    const debouncedSearch = debounce((q) => {
-        runSearch(q, { silent: true });
-    }, 400);
+    const debouncedSearch = debounce((q) => runSearch(q, { silent: true }), 400);
 
     btnEl.addEventListener("click", () => runSearch(inputEl.value));
 
-    inputEl.addEventListener("input", (e) => {
-        debouncedSearch(e.target.value);
-    });
+    inputEl.addEventListener("input", (e) => debouncedSearch(e.target.value));
 
     inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
             runSearch(inputEl.value);
         }
+    });
+
+    gridEl.addEventListener("click", (e) => {
+        const btn = e.target.closest('[data-action="toggle-fav"]');
+        if (!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const state = store.getState();
+        const book = state.books.find((b) => b.id === id);
+        if (!book) return;
+
+        const nextFavs = toggleFavorite(state.favorites, book);
+        store.setState({ favorites: nextFavs }, "favorites/toggle");
+        saveFavorites(nextFavs);
     });
 }
