@@ -7,7 +7,7 @@ export function renderLayout(rootEl) {
           <p class="subtitle">Open Library search • Vanilla JS</p>
         </div>
 
-        <button id="themeBtn" class="btn btn-ghost" type="button" aria-label="Toggle theme">
+        <button id="themeBtn" class="btn btn-ghost" type="button">
           Theme
         </button>
       </header>

@@ -5,6 +5,7 @@ import { searchBooks } from "../shared/api/openLibrary";
 import { normalizeBooks } from "../entities/book/model";
 import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
 import { debounce } from "../shared/lib/debounce";
+import { getInitialTheme, applyTheme, saveTheme, toggleTheme } from "../features/theme/themeService";
 
 import { loadFavorites, saveFavorites, toggleFavorite } from "../features/favorites/favoritesRepository";
 import { renderFavoritesPanel } from "../widgets/favorites/favoritesPanel";
@@ -23,8 +24,13 @@ export function initApp() {
         errorMessage: "",
         books: [],
         favorites: [],
-        authorFilter: ""
+        authorFilter: "",
+        theme: "light"
     });
+
+    const initialTheme = getInitialTheme();
+    store.setState({ theme: initialTheme }, "theme/init");
+    applyTheme(initialTheme);
 
     const statusEl = qs("#status");
     const inputEl = qs("#searchInput");
@@ -32,6 +38,17 @@ export function initApp() {
     const gridEl = qs("#grid");
     const favoritesEl = qs("#favorites");
     const authorSelectEl = qs("#authorSelect");
+    const themeBtn = qs("#themeBtn");
+
+    if (themeBtn) {
+        themeBtn.addEventListener("click", () => {
+            const current = store.getState().theme;
+            const next = toggleTheme(current);
+            store.setState({ theme: next }, "theme/toggle");
+            applyTheme(next);
+            saveTheme(next);
+        });
+    }
 
     store.setState({ favorites: loadFavorites() }, "favorites/load");
 
