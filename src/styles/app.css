@@ -280,3 +280,59 @@ body {
     --border: rgba(255,255,255,.12);
     --accent: #60a5fa;
 }
+
+/* ===== Skeleton ===== */
+.sCard {
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.sCover {
+    height: 180px;
+    background: #eef0f4;
+}
+
+.sBody {
+    padding: 10px 12px 12px;
+    display: grid;
+    gap: 8px;
+}
+
+.sLine {
+    height: 10px;
+    border-radius: 999px;
+    background: #eef0f4;
+}
+
+.sLine--lg { height: 12px; width: 92%; }
+.sLine--sm { width: 55%; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .sCover, .sLine {
+        background: linear-gradient(90deg, #eef0f4 0%, #f6f7fb 50%, #eef0f4 100%);
+        background-size: 200% 100%;
+        animation: shimmer 1.2s linear infinite;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+}
+
+/* ===== Error box in status ===== */
+.statusRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-small {
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+}

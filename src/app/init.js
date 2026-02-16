@@ -6,6 +6,7 @@ import { normalizeBooks } from "../entities/book/model";
 import { renderCatalogGrid } from "../widgets/catalog/catalogGrid";
 import { debounce } from "../shared/lib/debounce";
 import { getInitialTheme, applyTheme, saveTheme, toggleTheme } from "../features/theme/themeService";
+import { renderSkeletonGrid } from "../shared/ui/skeleton";
 
 import { loadFavorites, saveFavorites, toggleFavorite } from "../features/favorites/favoritesRepository";
 import { renderFavoritesPanel } from "../widgets/favorites/favoritesPanel";
@@ -54,19 +55,41 @@ export function initApp() {
 
     function render(state) {
         if (state.status === "idle") {
-            statusEl.innerHTML = `<span class="muted">Type a query and start typing</span>`;
-        } else if (state.status === "loading") {
-            statusEl.textContent = `Loading results for "${state.query}"...`;
-        } else if (state.status === "empty") {
-            statusEl.textContent = `No results for "${state.query}". Try another query.`;
-        } else if (state.status === "error") {
-            statusEl.textContent = state.errorMessage || "Something went wrong";
-        } else {
-            statusEl.textContent = `Found ${state.books.length} books for "${state.query}"`;
+            statusEl.innerHTML = `<span class="muted">Enter at least 3 characters to search</span>`;
+            renderCatalogGrid(gridEl, [], state.favorites);
+            renderFavoritesPanel(favoritesEl, state.favorites);
+            return;
         }
 
-        const filteredBooks = applyAuthorFilter(state.books, state.authorFilter);
+        if (state.status === "loading") {
+            statusEl.textContent = `Loading results for "${state.query}"...`;
+            renderSkeletonGrid(gridEl, 9);
+            renderFavoritesPanel(favoritesEl, state.favorites);
+            return;
+        }
 
+        if (state.status === "error") {
+            statusEl.innerHTML = `
+                <div class="statusRow">
+                    <span>${escapeHtml(state.errorMessage || "Something went wrong")}</span>
+                    <button id="retryBtn" class="btn btn-small" type="button">Retry</button>
+                </div>`;
+
+            renderCatalogGrid(gridEl, [], state.favorites);
+            renderFavoritesPanel(favoritesEl, state.favorites);
+
+            return;
+        }
+
+        if (state.status === "empty") {
+            statusEl.textContent = `No results for "${state.query}". Try another query.`;
+            renderCatalogGrid(gridEl, [], state.favorites);
+            renderFavoritesPanel(favoritesEl, state.favorites);
+            return;
+        }
+
+        statusEl.textContent = `Found ${state.books.length} books for "${state.query}"`;
+        const filteredBooks = applyAuthorFilter(state.books, state.authorFilter);
         renderCatalogGrid(gridEl, filteredBooks, state.favorites);
         renderFavoritesPanel(favoritesEl, state.favorites);
     }
@@ -149,5 +172,20 @@ export function initApp() {
         store.setState({ authorFilter: e.target.value }, "filter/author_change");
     });
 
+    statusEl.addEventListener("click", (e) => {
+        const btn = e.target.closest("#retryBtn");
+        if (!btn) return;
+        runSearch(store.getState().query);
+    });
+
     fillAuthorSelect(authorSelectEl, [], "");
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }

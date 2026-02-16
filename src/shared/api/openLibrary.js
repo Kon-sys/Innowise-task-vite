@@ -7,6 +7,10 @@ export async function searchBooks(query, { limit = 20, signal } = {}) {
 
     const res = await fetch(url.toString(), { signal });
 
+    if (res.status === 422) {
+        return { docs: [] };
+    }
+
     if (!res.ok) {
         throw new Error(`Open Library error: ${res.status}`);
     }
